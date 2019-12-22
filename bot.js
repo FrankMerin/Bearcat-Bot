@@ -6,7 +6,7 @@ const majorsInfo = require('./majorsInfo.js');
 const {RateLimiter} = require('./helpers.js');
 
 // 1.5 second cooldown to limit spam
-const COMMAND_COOLDOWN = 1.5 * 1000;
+const COMMAND_COOLDOWN = 1 * 1000;
 
 // Initialize Discord Bot
 const client = new Discord.Client();
@@ -27,7 +27,7 @@ function assignRole(user, major) {
     if (member.roles.find(currRole => currRole === role)) {
       return {
         success: false,
-        error: 'You alrady have that role.',
+        error: 'You already have that role.',
       };
     }
 

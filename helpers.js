@@ -1,21 +1,21 @@
+// User specific debounce function
 module.exports = {
-  // TODO: This needs to be a debounce.
-  RateLimiter: (time, fn) => {
+  RateLimiter: (delay, fn) => {
     const userMap = new Map();
-  
+
     return (msg => {
       if (msg.channel.type !== 'dm' || msg.author.bot) {
         return;
       }
 
       if (userMap.has(msg.author.id)) {
-        if ((Date.now() - userMap.get(msg.author.id)) < time) {
-          console.log(`Rate limiting ${msg.author.username}`);
-          return;
-        }
+        clearTimeout(userMap.get(msg.author.id));
       }
-      fn(msg);
-      userMap.set(msg.author.id, Date.now());
+
+      userMap.set(msg.author.id, setTimeout(() => {
+        fn(msg);
+        userMap.delete(msg.author.id);
+      }, delay))
     });
   }
 }
