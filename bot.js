@@ -3,7 +3,7 @@ const Discord = require('discord.js');
 const auth = require('./auth.json');
 const messages = require('./messages.js');
 const majorsInfo = require('./majorsInfo.js');
-const {RateLimiter} = require('./helpers.js');
+const {RateLimiter, isUserAdminOrMod, getUserFromMention} = require('./helpers.js');
 
 // 1.5 second cooldown to limit spam
 const COMMAND_COOLDOWN = 1 * 1000;
@@ -61,6 +61,38 @@ function assignRole(user, major) {
 function msgHandler(msg) {
   if (msg.content === '!roles') {
     msg.author.send(messages.askMajor);
+    return;
+  }
+
+  // If the bot is mentioned, check for commands to respond to.
+  if (msg.isMemberMentioned(client.user) && isUserAdminOrMod(client, msg.author)) {
+    const splitMsg = msg.content.split(/\s+/);
+    const command = splitMsg[1] || 'Unrecognized';
+    switch (command.toLowerCase()) {
+      case "askmajor":
+        if (splitMsg.length < 3) {  
+          msg.reply(`Invalid syntax. Type "@BearcatBot askmajor @USER"`);
+          break;
+        }
+
+        const mention = splitMsg[2];
+        const askedMember = getUserFromMention(client, mention);
+
+        if (!askedMember || askedMember.id === client.user.id) {
+          msg.reply(`Invalid syntax. Type "@BearcatBot askmajor @USER"`);
+        } else {
+          msg.channel.send(`Okay, I'll PM ${askedMember.username} for their major.`);
+          askedMember.send(messages.askMajor);
+        }
+        break;
+      default:
+        msg.reply('Unrecognized command');
+        break;
+    }
+  }
+
+  // Otherwise if not a DM stop message processing.
+  if (msg.channel.type !== 'dm') {
     return;
   }
 
