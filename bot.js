@@ -3,7 +3,7 @@ const Discord = require('discord.js');
 const auth = require('./auth.json');
 const messages = require('./messages.js');
 const majorsInfo = require('./majorsInfo.js');
-const {RateLimiter, isUserAdminOrMod, getUserFromMention} = require('./helpers.js');
+const {RateLimiter, getMemberFromUser, isUserAdminOrMod, isStudentOrGradStudent, getUserFromMention} = require('./helpers.js');
 
 // 1.5 second cooldown to limit spam
 const COMMAND_COOLDOWN = 1 * 1000;
@@ -13,6 +13,11 @@ const client = new Discord.Client();
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
+
+/* TODO:
+   - Make some sort of system to stop users from removing their student role
+   - Make an easter egg "@bearcat execute @user" command that can only be used once per week per user that performs some cool animation
+*/
 
 // Assigns the given user the given role. Returns true if successful, false if not.
 function assignRole(user, major) {
@@ -57,14 +62,17 @@ function assignRole(user, major) {
   }
 }
 
-// Generic message handler with logic to handle major assignments.
 function msgHandler(msg) {
   if (msg.content === '!roles') {
+    if (!isStudentOrGradStudent(getMemberFromUser(client, msg.author))) {
+      msg.author.send('You have to be a student to receive a major. Please go to the #role-assignment channel to do so.');
+      return;
+    }
     msg.author.send(messages.askMajor);
     return;
   }
 
-  // If the bot is mentioned, check for commands to respond to.
+  // If the bot is mentioned by an admin, check for commands to respond to.
   if (msg.isMemberMentioned(client.user) && isUserAdminOrMod(client, msg.author)) {
     const splitMsg = msg.content.split(/\s+/);
     const command = splitMsg[1] || 'Unrecognized';
@@ -96,8 +104,9 @@ function msgHandler(msg) {
     return;
   }
 
+  // If it's a DM check for valid major and process.
   const givenMajor = msg.content.toUpperCase();
-  let resolvedMajor = majorsInfo.abbrevToFull[givenMajor];
+  const resolvedMajor = majorsInfo.abbrevToFull[givenMajor];
   if (resolvedMajor) {
     const result = assignRole(msg.author, resolvedMajor);
     if (result.success) {
@@ -112,9 +121,7 @@ function msgHandler(msg) {
 
 // Check if the user received the "Student" role, and if so, start the major assignment flow.
 function memberUpdateHandler(oldMember, newMember) {
-  if (
-    !oldMember.roles.find(({ name }) => name === 'Student') && newMember.roles.find(({ name }) => name === 'Student')
-  ) {
+  if (!isStudentOrGradStudent(oldMember) && isStudentOrGradStudent(newMember)) {
     newMember.user.send(messages.askMajor);
     console.log(`Sent major request to new student ${newMember.user.username}.`);
   }
@@ -126,5 +133,3 @@ client.on('message', limitedMessageHandler);
 client.on('guildMemberUpdate', memberUpdateHandler);
 
 client.login(auth.token);
-
-// TODO: Make command that will let an admin invoke the greeting on any specified user.
