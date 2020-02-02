@@ -21,6 +21,16 @@ module.exports = {
       }, delay))
     });
   },
+  getMemberFromUser: (client, user) => client.guilds.first().member(user),
+  isStudentOrGradStudent: member => {
+    if (
+      member.roles.find(({ name }) => name === 'Student') ||
+      member.roles.find(({ name }) => name === 'Grad Student')
+    ) {
+      return true;
+    }
+    return false;
+  },
   isUserAdminOrMod: (client, user) => {
     const member = client.guilds.first().member(user);
     return member.hasPermission("ADMINISTRATOR");
