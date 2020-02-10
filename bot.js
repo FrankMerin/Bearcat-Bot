@@ -39,7 +39,7 @@ function assignRole(user, major) {
     if (!member.roles.find(({ name }) => name === 'Student')) {
       return {
         success: false,
-        error: 'You have to be a student to receive a major. Please go to the #role-assignment channel to do so.'
+        error: 'You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.'
       };
     }
 
@@ -57,7 +57,7 @@ function assignRole(user, major) {
     console.error(err);
     return {
       success: false,
-      error: `Failed to assign major for unknown reason. Please PM "@egrodo#5991", my creator.`
+      error: `Failed to assign major for unknown reason. Please PM "@egrodo#5991", the Discord server's admin.`
     };
   }
 }
@@ -65,7 +65,7 @@ function assignRole(user, major) {
 function msgHandler(msg) {
   if (msg.content === '!roles') {
     if (!isStudentOrGradStudent(getMemberFromUser(client, msg.author))) {
-      msg.author.send('You have to be a student to receive a major. Please go to the #role-assignment channel to do so.');
+      msg.author.send('You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.');
       return;
     }
     msg.author.send(messages.askMajor);
@@ -89,7 +89,7 @@ function msgHandler(msg) {
         if (!askedMember || askedMember.id === client.user.id) {
           msg.reply(`Invalid syntax. Type "@BearcatBot askmajor @USER"`);
         } else {
-          msg.channel.send(`Okay, I'll PM ${askedMember.username} for their major.`);
+          msg.channel.send(`PMing ${askedMember.username} for their major.`);
           askedMember.send(messages.askMajor);
         }
         break;
@@ -135,4 +135,3 @@ client.on('guildMemberUpdate', memberUpdateHandler);
 client.login(auth.token);
 
 // TODO: Make command that will let an admin invoke the greeting on any specified user.
-// Saki Comment Test
