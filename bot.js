@@ -3,7 +3,13 @@ const Discord = require('discord.js');
 const auth = require('./auth.json');
 const messages = require('./messages.js');
 const majorsInfo = require('./majorsInfo.js');
-const {RateLimiter, getMemberFromUser, isUserAdminOrMod, isStudentOrGradStudent, getUserFromMention} = require('./helpers.js');
+const {
+  RateLimiter,
+  getMemberFromUser,
+  isUserAdminOrMod,
+  isStudentOrGradStudent,
+  getUserFromMention,
+} = require('./helpers.js');
 
 // 1.5 second cooldown to limit spam
 const COMMAND_COOLDOWN = 1 * 1000;
@@ -39,7 +45,7 @@ function assignRole(user, major) {
     if (!member.roles.find(({ name }) => name === 'Student')) {
       return {
         success: false,
-        error: 'You have to be a student to receive a major. Please go to the #role-assignment channel to do so.'
+        error: 'You have to be a student to receive a major. Please go to the #role-assignment channel to do so.',
       };
     }
 
@@ -57,7 +63,7 @@ function assignRole(user, major) {
     console.error(err);
     return {
       success: false,
-      error: `Failed to assign major for unknown reason. Please PM "@egrodo#5991", my creator.`
+      error: `Failed to assign major for unknown reason. Please PM "@egrodo#5991", my creator.`,
     };
   }
 }
@@ -65,7 +71,9 @@ function assignRole(user, major) {
 function msgHandler(msg) {
   if (msg.content === '!roles') {
     if (!isStudentOrGradStudent(getMemberFromUser(client, msg.author))) {
-      msg.author.send('You have to be a student to receive a major. Please go to the #role-assignment channel to do so.');
+      msg.author.send(
+        'You have to be a student to receive a major. Please go to the #role-assignment channel to do so.',
+      );
       return;
     }
     msg.author.send(messages.askMajor);
@@ -77,9 +85,9 @@ function msgHandler(msg) {
     const splitMsg = msg.content.split(/\s+/);
     const command = splitMsg[1] || 'Unrecognized';
     switch (command.toLowerCase()) {
-      case "askmajor":
-        if (splitMsg.length < 3) {  
-          msg.reply(`Invalid syntax. Type "@BearcatBot askmajor @USER"`);
+      case 'askmajor':
+        if (splitMsg.length < 3) {
+          msg.reply(`Invalid syntax. Type "@Bearcat Bot askmajor @USER" or "@Bearcat Bot askmajor USERID"`);
           break;
         }
 
@@ -87,7 +95,7 @@ function msgHandler(msg) {
         const askedMember = getUserFromMention(client, mention);
 
         if (!askedMember || askedMember.id === client.user.id) {
-          msg.reply(`Invalid syntax. Type "@BearcatBot askmajor @USER"`);
+          msg.reply(`Invalid syntax. Type "@Bearcat Bot askmajor @USER" or "@Bearcat Bot askmajor USERID"`);
         } else {
           msg.channel.send(`Okay, I'll PM ${askedMember.username} for their major.`);
           askedMember.send(messages.askMajor);
@@ -112,7 +120,7 @@ function msgHandler(msg) {
     if (result.success) {
       msg.reply(`Successfully assigned you the role "${resolvedMajor}".`);
     } else {
-      msg.reply(result.error)
+      msg.reply(result.error);
     }
   } else {
     msg.reply(`Invalid input, please type exactly one of the roles listed above. Type "!roles" to see the list again.`);
