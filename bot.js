@@ -1,4 +1,5 @@
 const Discord = require('discord.js');
+const Phin = require('phin');
 
 const auth = require('./auth.json');
 const messages = require('./messages.js');
@@ -21,8 +22,7 @@ client.on('ready', () => {
 });
 
 /* TODO:
-   - Make some sort of system to stop users from removing their student role
-   - Make an easter egg "@bearcat execute @user" command that can only be used once per week per user that performs some cool animation
+   - Modify the profRating command to show "would take again" and "level of difficulty" information as well.
 */
 
 // Assigns the given user the given role. Returns true if successful, false if not.
@@ -81,30 +81,90 @@ function msgHandler(msg) {
     return;
   }
 
+  const splitMsg = msg.content.split(/\s+/);
+  const command = splitMsg[0] || 'Unrecognized';
+  if (command === '!profRating') {
+    const profName = splitMsg.slice(1, splitMsg.length).join(' ');
+    const url = `https://solr-aws-elb-production.ratemyprofessors.com//solr/rmp/select/?solrformat=true&rows=20&wt=json&q=${profName}+AND+schoolid_s%3A222&defType=edismax&qf=teacherfirstname_t\%5E2000+teacherlastname_t%5E2000+teacherfullname_t%5E2000+autosuggest&bf=pow(total_number_of_ratings_i%2C2.1)&sort=total_number_of_ratings_i+desc&siteName=rmp&rows=20&start=0&fl=pk_id+teacherfirstname_t+teacherlastname_t+total_number_of_ratings_i+averageratingscore_rf+schoolid_s`;
+
+    Phin({ url, parse: 'json' })
+      .then(res => {
+        const foundProfs = res.body.response.docs || undefined;
+        // Assume the user is talking about the most relevant professor.
+        if (foundProfs && foundProfs.length) {
+          const { averageratingscore_rf: rating, pk_id: profId, teacherlastname_t: profLast } = foundProfs[0];
+          const profUrl = `https://www.ratemyprofessors.com/ShowRatings.jsp?tid=${profId}&showMyProfs=true`;
+
+          if (!rating || !profId) {
+            throw new Error('Professor API response malformed');
+          }
+
+          msg.channel.send(`Professor ${profLast} is rated ${rating}/5. View the ratings here: ${profUrl}`);
+        } else {
+          msg.channel.send('No professors found with that name.');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+      });
+  }
+
   // If the bot is mentioned by an admin, check for commands to respond to.
-  if (msg.isMemberMentioned(client.user) && isUserAdminOrMod(client, msg.author)) {
+  if (msg.isMemberMentioned(client.user)) {
     const splitMsg = msg.content.split(/\s+/);
     const command = splitMsg[1] || 'Unrecognized';
-    switch (command.toLowerCase()) {
-      case 'askmajor':
-        if (splitMsg.length < 3) {
-          msg.reply(`Invalid syntax. Type "@Bearcat Bot askmajor @USER" or "@Bearcat Bot askmajor USERID"`);
+    // Call the RMP API and get prof rating information
+    if (command.toLowerCase() === 'profrating') {
+      const profName = splitMsg.slice(2, splitMsg.length).join(' ');
+      const url = `https://solr-aws-elb-production.ratemyprofessors.com//solr/rmp/select/?solrformat=true&rows=20&wt=json&q=${profName}+AND+schoolid_s%3A222&defType=edismax&qf=teacherfirstname_t\%5E2000+teacherlastname_t%5E2000+teacherfullname_t%5E2000+autosuggest&bf=pow(total_number_of_ratings_i%2C2.1)&sort=total_number_of_ratings_i+desc&siteName=rmp&rows=20&start=0&fl=pk_id+teacherfirstname_t+teacherlastname_t+total_number_of_ratings_i+averageratingscore_rf+schoolid_s`;
+
+      Phin({ url, parse: 'json' })
+        .then(res => {
+          const foundProfs = res.body.response.docs || undefined;
+
+          // Assume the user is talking about the most relevant professor.
+          if (foundProfs && foundProfs.length) {
+            const { averageratingscore_rf: rating, pk_id: profId, teacherlastname_t: profLast } = foundProfs[0];
+            const profUrl = `https://www.ratemyprofessors.com/ShowRatings.jsp?tid=${profId}&showMyProfs=true`;
+
+            if (!rating || !profId) {
+              throw new Error('Professor API response malformed');
+            }
+
+            msg.channel.send(`Professor ${profLast} is rated ${rating}/5. View the ratings here: ${profUrl}`);
+          } else {
+            msg.channel.send('No professors found with that name.');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+        });
+    }
+
+    if (isUserAdminOrMod(client, msg.author)) {
+      switch (command.toLowerCase()) {
+        case 'askmajor':
+          if (splitMsg.length < 3) {
+            msg.reply(`Invalid syntax. Type "@Bearcat Bot askmajor @USER" or "@Bearcat Bot askmajor USERID"`);
+            break;
+          }
+
+          const mention = splitMsg[2];
+          const askedMember = getUserFromMention(client, mention);
+
+          if (!askedMember || askedMember.id === client.user.id) {
+            msg.reply(`Invalid syntax. Type "@Bearcat Bot askmajor @USER" or "@Bearcat Bot askmajor USERID"`);
+          } else {
+            msg.channel.send(`PMing ${askedMember.username} for their major.`);
+            askedMember.send(messages.askMajor);
+          }
           break;
-        }
-
-        const mention = splitMsg[2];
-        const askedMember = getUserFromMention(client, mention);
-
-        if (!askedMember || askedMember.id === client.user.id) {
-          msg.reply(`Invalid syntax. Type "@Bearcat Bot askmajor @USER" or "@Bearcat Bot askmajor USERID"`);
-        } else {
-          msg.channel.send(`PMing ${askedMember.username} for their major.`);
-          askedMember.send(messages.askMajor);
-        }
-        break;
-      default:
-        msg.reply('Unrecognized command');
-        break;
+        case 'profrating':
+          break;
+        default:
+          msg.reply('Unrecognized command');
+          break;
+      }
     }
   }
 
@@ -142,5 +202,3 @@ client.on('message', limitedMessageHandler);
 client.on('guildMemberUpdate', memberUpdateHandler);
 
 client.login(auth.token);
-
-// TODO: Make command that will let an admin invoke the greeting on any specified user.

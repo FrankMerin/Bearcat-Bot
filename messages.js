@@ -1,5 +1,4 @@
 module.exports = {
-  // TODO: Append the image
   firstGreeting: `**Welcome to the Baruch College Server! 
 If you'd like, you can mention your major for a role. 
 Feel free to ask any questions.**
@@ -24,6 +23,7 @@ Feel free to ask any questions.**
   \`ECO\` for Economics
   \`ENG\` for English
   \`FIN\` for Finance
+  \`HIS\` for History
   \`FINM\` for Financial Mathematics
   \`IOP\` for Industrial/Organizational Psychology
   \`INTB\` for International Business
@@ -42,5 +42,5 @@ Feel free to ask any questions.**
   \`SOC\` for Sociology
   \`STA\` for Statistics
   \`Undecided\` for Major Undecided
-`
-}
+`,
+};
