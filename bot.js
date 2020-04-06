@@ -22,7 +22,8 @@ client.on('ready', () => {
 });
 
 /* TODO:
-   - Modify the profRating command to show "would take again" and "level of difficulty" information as well.
+   - Modify the profRating command to show "would take again", "level of difficulty" , and number of reviews.
+   - Look into fixing @'ing inconsistency. 
 */
 
 // Assigns the given user the given role. Returns true if successful, false if not.
@@ -35,7 +36,7 @@ function assignRole(user, major) {
     }
 
     const member = guild.member(user);
-    if (member.roles.find(currRole => currRole === role)) {
+    if (member.roles.find((currRole) => currRole === role)) {
       return {
         success: false,
         error: 'You already have that role.',
@@ -51,7 +52,7 @@ function assignRole(user, major) {
     }
 
     // Remove any other major role/s the user already has.
-    member.roles.forEach(role => {
+    member.roles.forEach((role) => {
       if (majorsInfo.fullToAbbrev[role.name]) {
         member.removeRole(role);
       }
@@ -69,6 +70,49 @@ function assignRole(user, major) {
   }
 }
 
+function getProfRatings(profName, channel) {
+  const searchProfsUrl = `https://solr-aws-elb-production.ratemyprofessors.com//solr/rmp/select/?solrformat=true&rows=20&wt=json&q=${profName}+AND+schoolid_s%3A222&defType=edismax&qf=teacherfirstname_t\%5E2000+teacherlastname_t%5E2000+teacherfullname_t%5E2000+autosuggest&bf=pow(total_number_of_ratings_i%2C2.1)&sort=total_number_of_ratings_i+desc&siteName=rmp&rows=20&start=0&fl=pk_id+teacherfirstname_t+teacherlastname_t+total_number_of_ratings_i+averageratingscore_rf+schoolid_s`;
+
+  // First search for the professor and store preliminary information
+  let rating, profId, profLastName, ratingsCount;
+  Phin({ url: searchProfsUrl, parse: 'json' })
+    .then((res) => {
+      const foundProfs = res.body.response.docs || undefined;
+      // Assume the user is talking about the most relevant professor.
+      if (foundProfs && foundProfs.length) {
+        rating = foundProfs[0].averageratingscore_rf;
+        profId = foundProfs[0].pk_id;
+        profLastName = foundProfs[0].teacherlastname_t;
+        ratingsCount = foundProfs[0].total_number_of_ratings_i;
+
+        if (!rating || !profId) {
+          throw new Error('Professor API response malformed');
+        }
+      }
+    })
+    .then(() => {
+      if (rating && profId && profLastName && ratingsCount) {
+        // Now that we have the profId, send another request to get more information.
+        const profInfoUrl = `https://www.ratemyprofessors.com/paginate/professors/ratings?tid=${profId}&max=10&cache=true`;
+        Phin({ url: profInfoUrl, parse: 'json' })
+          .then((res) => {
+            console.log(res.body);
+
+            const profUrl = `https://www.ratemyprofessors.com/ShowRatings.jsp?tid=${profId}&showMyProfs=true`;
+            channel.send(
+              `Professor ${profLastName} is rated ${rating}/5 with ${ratingsCount} reviews. View the ratings here: ${profUrl}`,
+            );
+          })
+          .catch((err) => console.error(err));
+      } else {
+        channel.send('No professors found with that name.');
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+}
+
 function msgHandler(msg) {
   if (msg.content === '!roles') {
     if (!isStudentOrGradStudent(getMemberFromUser(client, msg.author))) {
@@ -83,30 +127,10 @@ function msgHandler(msg) {
 
   const splitMsg = msg.content.split(/\s+/);
   const command = splitMsg[0] || 'Unrecognized';
-  if (command === '!profRating') {
+  if (command.toLowerCase() === '!profrating' || command.toLowerCase() === '!rmp') {
     const profName = splitMsg.slice(1, splitMsg.length).join(' ');
-    const url = `https://solr-aws-elb-production.ratemyprofessors.com//solr/rmp/select/?solrformat=true&rows=20&wt=json&q=${profName}+AND+schoolid_s%3A222&defType=edismax&qf=teacherfirstname_t\%5E2000+teacherlastname_t%5E2000+teacherfullname_t%5E2000+autosuggest&bf=pow(total_number_of_ratings_i%2C2.1)&sort=total_number_of_ratings_i+desc&siteName=rmp&rows=20&start=0&fl=pk_id+teacherfirstname_t+teacherlastname_t+total_number_of_ratings_i+averageratingscore_rf+schoolid_s`;
-
-    Phin({ url, parse: 'json' })
-      .then(res => {
-        const foundProfs = res.body.response.docs || undefined;
-        // Assume the user is talking about the most relevant professor.
-        if (foundProfs && foundProfs.length) {
-          const { averageratingscore_rf: rating, pk_id: profId, teacherlastname_t: profLast } = foundProfs[0];
-          const profUrl = `https://www.ratemyprofessors.com/ShowRatings.jsp?tid=${profId}&showMyProfs=true`;
-
-          if (!rating || !profId) {
-            throw new Error('Professor API response malformed');
-          }
-
-          msg.channel.send(`Professor ${profLast} is rated ${rating}/5. View the ratings here: ${profUrl}`);
-        } else {
-          msg.channel.send('No professors found with that name.');
-        }
-      })
-      .catch(err => {
-        console.error(err);
-      });
+    getProfRatings(profName, msg.channel);
+    return;
   }
 
   // If the bot is mentioned by an admin, check for commands to respond to.
@@ -114,31 +138,10 @@ function msgHandler(msg) {
     const splitMsg = msg.content.split(/\s+/);
     const command = splitMsg[1] || 'Unrecognized';
     // Call the RMP API and get prof rating information
-    if (command.toLowerCase() === 'profrating') {
+    if (command.toLowerCase() === 'profrating' || command.toLowerCase() === 'rmp') {
       const profName = splitMsg.slice(2, splitMsg.length).join(' ');
-      const url = `https://solr-aws-elb-production.ratemyprofessors.com//solr/rmp/select/?solrformat=true&rows=20&wt=json&q=${profName}+AND+schoolid_s%3A222&defType=edismax&qf=teacherfirstname_t\%5E2000+teacherlastname_t%5E2000+teacherfullname_t%5E2000+autosuggest&bf=pow(total_number_of_ratings_i%2C2.1)&sort=total_number_of_ratings_i+desc&siteName=rmp&rows=20&start=0&fl=pk_id+teacherfirstname_t+teacherlastname_t+total_number_of_ratings_i+averageratingscore_rf+schoolid_s`;
-
-      Phin({ url, parse: 'json' })
-        .then(res => {
-          const foundProfs = res.body.response.docs || undefined;
-
-          // Assume the user is talking about the most relevant professor.
-          if (foundProfs && foundProfs.length) {
-            const { averageratingscore_rf: rating, pk_id: profId, teacherlastname_t: profLast } = foundProfs[0];
-            const profUrl = `https://www.ratemyprofessors.com/ShowRatings.jsp?tid=${profId}&showMyProfs=true`;
-
-            if (!rating || !profId) {
-              throw new Error('Professor API response malformed');
-            }
-
-            msg.channel.send(`Professor ${profLast} is rated ${rating}/5. View the ratings here: ${profUrl}`);
-          } else {
-            msg.channel.send('No professors found with that name.');
-          }
-        })
-        .catch(err => {
-          console.error(err);
-        });
+      getProfRatings(profName, msg.channel);
+      return;
     }
 
     if (isUserAdminOrMod(client, msg.author)) {
