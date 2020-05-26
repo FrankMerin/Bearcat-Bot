@@ -1,23 +1,24 @@
-const Discord = require('discord.js');
-const Phin = require('phin');
+const Discord = require("discord.js");
+const Phin = require("phin");
 
-const auth = require('./auth.json');
-const messages = require('./messages.js');
-const majorsInfo = require('./majorsInfo.js');
+const auth = require("./auth.json");
+const messages = require("./messages.js");
+const majorsInfo = require("./majorsInfo.js");
 const {
   RateLimiter,
   getMemberFromUser,
   isUserAdminOrMod,
   isStudentOrGradStudent,
   getUserFromMention,
-} = require('./helpers.js');
+  userHasRoles,
+} = require("./helpers.js");
 
 // 1.5 second cooldown to limit spam
 const COMMAND_COOLDOWN = 1 * 1000;
 
 // Initialize Discord Bot
 const client = new Discord.Client();
-client.on('ready', () => {
+client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
@@ -27,7 +28,7 @@ client.on('ready', () => {
 */
 
 // Assigns the given user the given role. Returns true if successful, false if not.
-function assignRole(user, major) {
+function assignMajorRole(user, major) {
   try {
     const guild = client.guilds.first();
     const role = guild.roles.find(({ name }) => name === major);
@@ -39,15 +40,15 @@ function assignRole(user, major) {
     if (member.roles.find((currRole) => currRole === role)) {
       return {
         success: false,
-        error: 'You already have that role.',
+        error: "You already have that role.",
       };
     }
 
-    if (!member.roles.find(({ name }) => name === 'Student')) {
+    if (!member.roles.find(({ name }) => name === "Student")) {
       return {
         success: false,
         error:
-          'You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.',
+          "You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.",
       };
     }
 
@@ -75,7 +76,7 @@ function getProfRatings(profName, channel) {
 
   // First search for the professor and store preliminary information
   let rating, profId, profLastName, ratingsCount;
-  Phin({ url: searchProfsUrl, parse: 'json' })
+  Phin({ url: searchProfsUrl, parse: "json" })
     .then((res) => {
       const foundProfs = res.body.response.docs || undefined;
       // Assume the user is talking about the most relevant professor.
@@ -86,7 +87,7 @@ function getProfRatings(profName, channel) {
         ratingsCount = foundProfs[0].total_number_of_ratings_i;
 
         if (!rating || !profId) {
-          throw new Error('Professor API response malformed');
+          throw new Error("Professor API response malformed");
         }
       }
     })
@@ -94,18 +95,18 @@ function getProfRatings(profName, channel) {
       if (rating && profId && profLastName && ratingsCount) {
         // Now that we have the profId, send another request to get more information.
         const profInfoUrl = `https://www.ratemyprofessors.com/paginate/professors/ratings?tid=${profId}&max=10&cache=true`;
-        Phin({ url: profInfoUrl, parse: 'json' })
+        Phin({ url: profInfoUrl, parse: "json" })
           .then((res) => {
             console.log(res.body);
 
             const profUrl = `https://www.ratemyprofessors.com/ShowRatings.jsp?tid=${profId}&showMyProfs=true`;
             channel.send(
-              `Professor ${profLastName} is rated ${rating}/5 with ${ratingsCount} reviews. View the ratings here: ${profUrl}`,
+              `Professor ${profLastName} is rated ${rating}/5 with ${ratingsCount} reviews. View the ratings here: ${profUrl}`
             );
           })
           .catch((err) => console.error(err));
       } else {
-        channel.send('No professors found with that name.');
+        channel.send("No professors found with that name.");
       }
     })
     .catch((err) => {
@@ -114,10 +115,10 @@ function getProfRatings(profName, channel) {
 }
 
 function msgHandler(msg) {
-  if (msg.content === '!roles') {
+  if (msg.content === "!roles") {
     if (!isStudentOrGradStudent(getMemberFromUser(client, msg.author))) {
       msg.author.send(
-        'You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.',
+        "You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student."
       );
       return;
     }
@@ -126,9 +127,9 @@ function msgHandler(msg) {
   }
 
   const splitMsg = msg.content.split(/\s+/);
-  const command = splitMsg[0] || 'Unrecognized';
-  if (command.toLowerCase() === '!profrating' || command.toLowerCase() === '!rmp') {
-    const profName = splitMsg.slice(1, splitMsg.length).join(' ');
+  const command = splitMsg[0] || "Unrecognized";
+  if (command.toLowerCase() === "!profrating" || command.toLowerCase() === "!rmp") {
+    const profName = splitMsg.slice(1, splitMsg.length).join(" ");
     getProfRatings(profName, msg.channel);
     return;
   }
@@ -136,17 +137,17 @@ function msgHandler(msg) {
   // If the bot is mentioned by an admin, check for commands to respond to.
   if (msg.isMemberMentioned(client.user)) {
     const splitMsg = msg.content.split(/\s+/);
-    const command = splitMsg[1] || 'Unrecognized';
+    const command = splitMsg[1] || "Unrecognized";
     // Call the RMP API and get prof rating information
-    if (command.toLowerCase() === 'profrating' || command.toLowerCase() === 'rmp') {
-      const profName = splitMsg.slice(2, splitMsg.length).join(' ');
+    if (command.toLowerCase() === "profrating" || command.toLowerCase() === "rmp") {
+      const profName = splitMsg.slice(2, splitMsg.length).join(" ");
       getProfRatings(profName, msg.channel);
       return;
     }
 
     if (isUserAdminOrMod(client, msg.author)) {
       switch (command.toLowerCase()) {
-        case 'askmajor':
+        case "askmajor":
           if (splitMsg.length < 3) {
             msg.reply(`Invalid syntax. Type "@Bearcat Bot askmajor @USER" or "@Bearcat Bot askmajor USERID"`);
             break;
@@ -162,17 +163,17 @@ function msgHandler(msg) {
             askedMember.send(messages.askMajor);
           }
           break;
-        case 'profrating':
+        case "profrating":
           break;
         default:
-          msg.reply('Unrecognized command');
+          msg.reply("Unrecognized command");
           break;
       }
     }
   }
 
   // Otherwise if not a DM stop message processing.
-  if (msg.channel.type !== 'dm') {
+  if (msg.channel.type !== "dm") {
     return;
   }
 
@@ -180,7 +181,7 @@ function msgHandler(msg) {
   const givenMajor = msg.content.toUpperCase();
   const resolvedMajor = majorsInfo.abbrevToFull[givenMajor];
   if (resolvedMajor) {
-    const result = assignRole(msg.author, resolvedMajor);
+    const result = assignMajorRole(msg.author, resolvedMajor);
     if (result.success) {
       msg.reply(`Successfully assigned you the role "${resolvedMajor}".`);
     } else {
@@ -196,12 +197,22 @@ function memberUpdateHandler(oldMember, newMember) {
   if (!isStudentOrGradStudent(oldMember) && isStudentOrGradStudent(newMember)) {
     newMember.user.send(messages.askMajor);
     console.log(`Sent major request to new student ${newMember.user.username}.`);
+  } else if (!userHasRoles(newMember)) {
+    try {
+      const guild = client.guilds.first();
+      const role = guild.roles.find(({ name }) => name === "Unknown Role");
+      newMember.addRole(role);
+      console.log(`Assigned Unknown Role to new user (${newMember.user.username}) who removed theirs`);
+    } catch (err) {
+      console.error("Failed to assign Unknown Role to new user");
+      console.error(err);
+    }
   }
 }
 
 const limitedMessageHandler = RateLimiter(COMMAND_COOLDOWN, msgHandler);
-client.on('message', limitedMessageHandler);
+client.on("message", limitedMessageHandler);
 
-client.on('guildMemberUpdate', memberUpdateHandler);
+client.on("guildMemberUpdate", memberUpdateHandler);
 
 client.login(auth.token);

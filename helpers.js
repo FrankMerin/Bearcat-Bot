@@ -1,11 +1,11 @@
-const Discord = require('discord.js');
+const Discord = require("discord.js");
 
 // User specific debounce function
 module.exports = {
   RateLimiter: (delay, fn) => {
     const userMap = new Map();
 
-    return msg => {
+    return (msg) => {
       // Don't rate limit myself.
       if (msg.author.bot) {
         return;
@@ -20,15 +20,16 @@ module.exports = {
         setTimeout(() => {
           fn(msg);
           userMap.delete(msg.author.id);
-        }, delay),
+        }, delay)
       );
     };
   },
   getMemberFromUser: (client, user) => client.guilds.first().member(user),
-  isStudentOrGradStudent: member => {
+  userHasRoles: (member) => member.roles.last().name !== "@everyone",
+  isStudentOrGradStudent: (member) => {
     if (
-      member.roles.find(({ name }) => name === 'Student') ||
-      member.roles.find(({ name }) => name === 'Grad Student')
+      member.roles.find(({ name }) => name === "Student") ||
+      member.roles.find(({ name }) => name === "Grad Student")
     ) {
       return true;
     }
@@ -36,15 +37,15 @@ module.exports = {
   },
   isUserAdminOrMod: (client, user) => {
     const member = client.guilds.first().member(user);
-    return member.hasPermission('ADMINISTRATOR');
+    return member.hasPermission("ADMINISTRATOR");
   },
   getUserFromMention: (client, mention) => {
     if (!mention) return;
 
-    if (mention.startsWith('<@') && mention.endsWith('>')) {
+    if (mention.startsWith("<@") && mention.endsWith(">")) {
       mention = mention.slice(2, -1);
 
-      if (mention.startsWith('!')) {
+      if (mention.startsWith("!")) {
         mention = mention.slice(1);
       }
 
