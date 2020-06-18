@@ -60,4 +60,20 @@ module.exports = {
     const time = new Date().getHours();
     return time === 6 || time === 14 || time === 22
   },
+
+  // Every hour check if the current time is within the ranges
+  setInterval: () => {
+    (redditInterval, 60 * 60 * 1000) 
+  },
+
+
+  // Takes a post, finds out if we've already posted it in the relevant channel, returns boolean.
+  havePostedAlready: async (client, postLink, REDDIT_POSTING_CHANNEL_ID) => {
+    const channel = await client.channels.get(REDDIT_POSTING_CHANNEL_ID);
+
+    const messages = await channel.fetchMessages({limit: 10});
+    const foundMessage = messages.find(currentMessage => currentMessage.content === postLink);
+    return Boolean(foundMessage)
+  },
+
 };

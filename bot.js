@@ -12,6 +12,8 @@ const {
   getUserFromMention,
   userHasRoles,
   isRedditPostingTime,
+  havePostedAlready,
+  setInterval,
 } = require("./helpers.js");
 
 // 1.5 second cooldown to limit spam
@@ -19,7 +21,7 @@ const COMMAND_COOLDOWN = 1 * 1000;
 // Reddit API link
 const REDDIT_URL = 'https://www.reddit.com/r/baruch.json?limit=10';
 // Channel ID of channel used for posting reddit links
-const REDDIT_POSTING_CHANNEL_ID = '723038653751885825';
+const REDDIT_POSTING_CHANNEL_ID = '723038653751885825'; //FIXME
 
 // Initialize Discord Bot
 const client = new Discord.Client();
@@ -28,9 +30,6 @@ client.on("ready", () => {
   redditInterval();
 });
 
-/* TODO:
-   - Every 8 hours post the top hot post from /r/Baruch
-*/
 
 // Assigns the given user the given role. Returns true if successful, false if not.
 function assignMajorRole(user, major) {
@@ -214,8 +213,8 @@ function memberUpdateHandler(oldMember, newMember) {
     }
   }
 }
-// Also run once on startup of script
 // Will post if all conditions are met (time is correct, post is not stickied, post have not been posted)
+// Also run once on startup of script
 const redditInterval = async () => {
   const shouldPost = isRedditPostingTime();
   if (!shouldPost) return;
@@ -226,7 +225,7 @@ const redditInterval = async () => {
     let startAt = 0;
     while (!validPost) {
       const [postLink, position] = getNthNonStickiedPost(postList, startAt);
-      if (await havePostedAlready(postLink)) {
+      if (await havePostedAlready(client, postLink, REDDIT_POSTING_CHANNEL_ID)) {
         startAt = position + 1;
         continue;
       } else {
@@ -236,11 +235,10 @@ const redditInterval = async () => {
     const channel = await client.channels.get(REDDIT_POSTING_CHANNEL_ID);
     channel.send(validPost);
   } catch(error) {
+    console.error("Failed to fetch and post Reddit post on interval");
     console.error(error);
   } 
 }
-
-
 
 
 
@@ -251,22 +249,10 @@ client.on("message", limitedMessageHandler);
 client.on("guildMemberUpdate", memberUpdateHandler);
 
 
-// Every hour check if the current time is within the ranges
-setInterval(redditInterval, 60 * 60 * 1000);
-
-// Takes a post, finds out if we've already posted it in the relevant channel, returns boolean.
-async function havePostedAlready(postLink) {
-  const channel = await client.channels.get(REDDIT_POSTING_CHANNEL_ID);
-
-  const messages = await channel.fetchMessages({limit: 10});
-  const foundMessage = messages.find(currentMessage => currentMessage.content === postLink);
-  return Boolean(foundMessage)
-}
-
 
 // Returns the nth non-stickied post in postList
 function getNthNonStickiedPost(postList, startAt = 0) {
-    for (let i = startAt; i < postList.length; i++) {
+    for (let i = startAt; i < postList.length; ++i) {
         if (postList[i].data.stickied === true) {
           continue; 
         } else return [`https://reddit.com${postList[i].data.permalink}`, i];
