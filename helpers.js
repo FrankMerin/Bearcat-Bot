@@ -56,6 +56,19 @@ module.exports = {
     }
   },
   isRedditPostingTime: () => {
-    // TODO: If the time is: 12am, 8am, 4pm, return true. Else return false.
+    // If the time is: 6am, 2pm, 10pm, return true. Else return false.
+    const time = new Date().getHours();
+    return time === 6 || time === 14 || time === 22
+  },
+
+
+
+  // Takes a post, finds out if we've already posted it in the relevant channel, returns boolean.
+  havePostedAlready: async (client, postLink, REDDIT_POSTING_CHANNEL_ID) => {
+    const channel = await client.channels.get(REDDIT_POSTING_CHANNEL_ID);
+
+    const messages = await channel.fetchMessages({limit: 10});
+    const foundMessage = messages.find(currentMessage => currentMessage.content === postLink);
+    return Boolean(foundMessage)
   },
 };
