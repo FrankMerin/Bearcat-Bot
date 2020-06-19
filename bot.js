@@ -13,7 +13,6 @@ const {
   userHasRoles,
   isRedditPostingTime,
   havePostedAlready,
-  setInterval,
 } = require("./helpers.js");
 
 // 1.5 second cooldown to limit spam
@@ -21,7 +20,7 @@ const COMMAND_COOLDOWN = 1 * 1000;
 // Reddit API link
 const REDDIT_URL = 'https://www.reddit.com/r/baruch.json?limit=10';
 // Channel ID of channel used for posting reddit links
-const REDDIT_POSTING_CHANNEL_ID = '723038653751885825'; //FIXME
+const REDDIT_POSTING_CHANNEL_ID = '723038653751885825';
 
 // Initialize Discord Bot
 const client = new Discord.Client();
@@ -196,6 +195,8 @@ function msgHandler(msg) {
   }
 }
 
+
+
 // Check if the user received the "Student" role, and if so, start the major assignment flow.
 function memberUpdateHandler(oldMember, newMember) {
   if (!isStudentOrGradStudent(oldMember) && isStudentOrGradStudent(newMember)) {
@@ -241,7 +242,8 @@ const redditInterval = async () => {
 }
 
 
-
+// Every hour check if the current time is within the ranges
+setInterval(redditInterval, 60 * 60 * 1000);
 
 const limitedMessageHandler = RateLimiter(COMMAND_COOLDOWN, msgHandler);
 client.on("message", limitedMessageHandler);
