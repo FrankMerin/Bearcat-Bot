@@ -13,14 +13,16 @@ const {
   userHasRoles,
   isRedditPostingTime,
   havePostedAlready,
+  getNthNonStickiedPost,
 } = require("./helpers.js");
 
 // 1.5 second cooldown to limit spam
 const COMMAND_COOLDOWN = 1 * 1000;
 // Reddit API link
-const REDDIT_URL = 'https://www.reddit.com/r/baruch.json?limit=10';
+const REDDIT_URL = "https://www.reddit.com/r/baruch.json?limit=10";
 // Channel ID of channel used for posting reddit links
-const REDDIT_POSTING_CHANNEL_ID = '723038653751885825';
+const REDDIT_POSTING_CHANNEL_ID = "723038653751885825";
+const DELETED_MESSAGE_LOG_CHANNEL_ID = "684929894768967726"
 
 // Initialize Discord Bot
 const client = new Discord.Client();
@@ -28,7 +30,6 @@ client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}!`);
   redditInterval();
 });
-
 
 // Assigns the given user the given role. Returns true if successful, false if not.
 function assignMajorRole(user, major) {
@@ -195,8 +196,6 @@ function msgHandler(msg) {
   }
 }
 
-
-
 // Check if the user received the "Student" role, and if so, start the major assignment flow.
 function memberUpdateHandler(oldMember, newMember) {
   if (!isStudentOrGradStudent(oldMember) && isStudentOrGradStudent(newMember)) {
@@ -235,11 +234,31 @@ const redditInterval = async () => {
     }
     const channel = await client.channels.get(REDDIT_POSTING_CHANNEL_ID);
     channel.send(validPost);
-  } catch(error) {
+  } catch (error) {
     console.error("Failed to fetch and post Reddit post on interval");
     console.error(error);
-  } 
-}
+  }
+};
+
+client.on('messageDelete', async messageDelete => {
+  if (!messageDelete.author.bot) {
+    const embed = new Discord.RichEmbed()
+      .setTitle('A Message was Deleted')
+      .addField('Message Author', `${messageDelete.author}`)
+      .addField('Deleted From Channel', `${messageDelete.channel}`)
+      .addField('Message Content', `${messageDelete.content}`)
+      
+      if(messageDelete.attachments.array().length > 0) {
+        const image = messageDelete.attachments.array()
+        embed.setImage(image[0].proxyURL)
+      }
+    const channel = await client.channels.get(DELETED_MESSAGE_LOG_CHANNEL_ID);
+    channel.send(embed)
+  }
+});
+
+
+
 
 
 // Every hour check if the current time is within the ranges
@@ -250,16 +269,6 @@ client.on("message", limitedMessageHandler);
 
 client.on("guildMemberUpdate", memberUpdateHandler);
 
-
-
 // Returns the nth non-stickied post in postList
-function getNthNonStickiedPost(postList, startAt = 0) {
-    for (let i = startAt; i < postList.length; ++i) {
-        if (postList[i].data.stickied === true) {
-          continue; 
-        } else return [`https://reddit.com${postList[i].data.permalink}`, i];
-    }
-    throw new Error('No non stickied posts found');
-} 
 
 client.login(auth.token);
