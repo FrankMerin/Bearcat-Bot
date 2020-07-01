@@ -244,6 +244,7 @@ const redditInterval = async () => {
 // Creates and Sends the embed of all information for the deleted message
 const CreateDeletedEmbed = async (messageDelete) => {
   if (messageDelete.author.bot) return;
+
   const entry = await messageDelete.guild.fetchAuditLogs({
     type: "MESSAGE_DELETE",
   });
@@ -278,27 +279,5 @@ const limitedMessageHandler = RateLimiter(COMMAND_COOLDOWN, msgHandler);
 client.on("message", limitedMessageHandler);
 
 client.on("guildMemberUpdate", memberUpdateHandler);
-
-// Every hour check if the current time is within the ranges
-setInterval(redditInterval, 60 * 60 * 1000);
-
-// Takes a post, finds out if we've already posted it in the relevant channel, returns boolean.
-async function havePostedAlready(postLink) {
-  const channel = await client.channels.get(REDDIT_POSTING_CHANNEL_ID);
-
-  const messages = await channel.fetchMessages({ limit: 10 });
-  const foundMessage = messages.find((currentMessage) => currentMessage.content === postLink);
-  return Boolean(foundMessage);
-}
-
-// Returns the nth non-stickied post in postList
-function getNthNonStickiedPost(postList, startAt = 0) {
-  for (let i = startAt; i < postList.length; i++) {
-    if (postList[i].data.stickied === true) {
-      continue;
-    } else return [`https://reddit.com${postList[i].data.permalink}`, i];
-  }
-  throw new Error("No non stickied posts found");
-}
 
 client.login(auth.token);
