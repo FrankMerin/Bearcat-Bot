@@ -243,9 +243,7 @@ const redditInterval = async () => {
 
 // Creates and Sends the embed of all information for the deleted message
 const CreateDeletedEmbed = async (messageDelete) => {
-  if (messageDelete.author.bot) {
-    return;
-  }
+  if (messageDelete.author.bot) return;
   const entry = await messageDelete.guild.fetchAuditLogs({
     type: "MESSAGE_DELETE",
   });
