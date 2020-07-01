@@ -12,14 +12,18 @@ const {
   getUserFromMention,
   userHasRoles,
   isRedditPostingTime,
+  havePostedAlready,
+  getNthNonStickiedPost,
+  whoDeletedTheMessage,
 } = require("./helpers.js");
 
 // 1.5 second cooldown to limit spam
 const COMMAND_COOLDOWN = 1 * 1000;
 // Reddit API link
-const REDDIT_URL = 'https://www.reddit.com/r/baruch.json?limit=10';
+const REDDIT_URL = "https://www.reddit.com/r/baruch.json?limit=10";
 // Channel ID of channel used for posting reddit links
-const REDDIT_POSTING_CHANNEL_ID = '723038653751885825';
+const REDDIT_POSTING_CHANNEL_ID = "723038653751885825";
+const DELETED_MESSAGE_LOG_CHANNEL_ID = "727294305055801364";
 
 // Initialize Discord Bot
 const client = new Discord.Client();
@@ -27,10 +31,6 @@ client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}!`);
   redditInterval();
 });
-
-/* TODO:
-   - Every 8 hours post the top hot post from /r/Baruch
-*/
 
 // Assigns the given user the given role. Returns true if successful, false if not.
 function assignMajorRole(user, major) {
@@ -214,8 +214,8 @@ function memberUpdateHandler(oldMember, newMember) {
     }
   }
 }
-// Also run once on startup of script
 // Will post if all conditions are met (time is correct, post is not stickied, post have not been posted)
+// Also run once on startup of script
 const redditInterval = async () => {
   const shouldPost = isRedditPostingTime();
   if (!shouldPost) return;
@@ -226,7 +226,7 @@ const redditInterval = async () => {
     let startAt = 0;
     while (!validPost) {
       const [postLink, position] = getNthNonStickiedPost(postList, startAt);
-      if (await havePostedAlready(postLink)) {
+      if (await havePostedAlready(client, postLink, REDDIT_POSTING_CHANNEL_ID)) {
         startAt = position + 1;
         continue;
       } else {
@@ -235,21 +235,49 @@ const redditInterval = async () => {
     }
     const channel = await client.channels.get(REDDIT_POSTING_CHANNEL_ID);
     channel.send(validPost);
-  } catch(error) {
+  } catch (error) {
+    console.error("Failed to fetch and post Reddit post on interval");
     console.error(error);
-  } 
-}
+  }
+};
 
+// Creates and Sends the embed of all information for the deleted message
+const CreateDeletedEmbed = async (messageDelete) => {
+  if (messageDelete.author.bot) return;
+  const entry = await messageDelete.guild.fetchAuditLogs({
+    type: "MESSAGE_DELETE",
+  });
+  const firstDeleteEvent = entry.entries.first();
+  const channel = await client.channels.get(DELETED_MESSAGE_LOG_CHANNEL_ID);
 
+  const embed = new Discord.RichEmbed()
+    .setTitle("A Message was Deleted")
+    .setColor("#FF0000")
+    .addField("Message Author", `${messageDelete.author}`)
+    .addField("Deleted From Channel", `${messageDelete.channel}`)
+    .addField("Deleted By", whoDeletedTheMessage(firstDeleteEvent, messageDelete));
 
+  if (messageDelete.content !== "") {
+    embed.addField("Message Content", `${messageDelete.content}`);
+  } else {
+    embed.addField("Message Content", "IMAGE ONLY");
+  }
 
+  if (messageDelete.attachments.size > 0) {
+    embed.setImage(messageDelete.attachments.first().proxyURL);
+  }
+  channel.send(embed);
+};
 
+client.on("messageDelete", CreateDeletedEmbed);
+
+// Every hour check if the current time is within the ranges
+setInterval(redditInterval, 60 * 60 * 1000);
 
 const limitedMessageHandler = RateLimiter(COMMAND_COOLDOWN, msgHandler);
 client.on("message", limitedMessageHandler);
 
 client.on("guildMemberUpdate", memberUpdateHandler);
-
 
 // Every hour check if the current time is within the ranges
 setInterval(redditInterval, 60 * 60 * 1000);
@@ -258,20 +286,19 @@ setInterval(redditInterval, 60 * 60 * 1000);
 async function havePostedAlready(postLink) {
   const channel = await client.channels.get(REDDIT_POSTING_CHANNEL_ID);
 
-  const messages = await channel.fetchMessages({limit: 10});
-  const foundMessage = messages.find(currentMessage => currentMessage.content === postLink);
-  return Boolean(foundMessage)
+  const messages = await channel.fetchMessages({ limit: 10 });
+  const foundMessage = messages.find((currentMessage) => currentMessage.content === postLink);
+  return Boolean(foundMessage);
 }
-
 
 // Returns the nth non-stickied post in postList
 function getNthNonStickiedPost(postList, startAt = 0) {
-    for (let i = startAt; i < postList.length; i++) {
-        if (postList[i].data.stickied === true) {
-          continue; 
-        } else return [`https://reddit.com${postList[i].data.permalink}`, i];
-    }
-    throw new Error('No non stickied posts found');
-} 
+  for (let i = startAt; i < postList.length; i++) {
+    if (postList[i].data.stickied === true) {
+      continue;
+    } else return [`https://reddit.com${postList[i].data.permalink}`, i];
+  }
+  throw new Error("No non stickied posts found");
+}
 
 client.login(auth.token);
