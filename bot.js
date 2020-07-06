@@ -14,6 +14,7 @@ const {
   isRedditPostingTime,
   havePostedAlready,
   getNthNonStickiedPost,
+  whoDeletedTheMessage,
 } = require("./helpers.js");
 
 // 1.5 second cooldown to limit spam
@@ -22,6 +23,7 @@ const COMMAND_COOLDOWN = 1 * 1000;
 const REDDIT_URL = "https://www.reddit.com/r/baruch.json?limit=10";
 // Channel ID of channel used for posting reddit links
 const REDDIT_POSTING_CHANNEL_ID = "723038653751885825";
+const DELETED_MESSAGE_LOG_CHANNEL_ID = "727294305055801364";
 
 // Initialize Discord Bot
 const client = new Discord.Client();
@@ -239,6 +241,38 @@ const redditInterval = async () => {
   }
 };
 
+
+// Creates and Sends the embed of all information for the deleted message
+const CreateDeletedEmbed = async (messageDelete) => {
+  if (messageDelete.author.bot) return;
+
+  const entry = await messageDelete.guild.fetchAuditLogs({
+    type: "MESSAGE_DELETE",
+  });
+  const firstDeleteEvent = entry.entries.first();
+  const channel = await client.channels.get(DELETED_MESSAGE_LOG_CHANNEL_ID);
+
+  const embed = new Discord.RichEmbed()
+    .setTitle("A Message was Deleted")
+    .setColor("#FF0000")
+    .addField("Message Author", `${messageDelete.author}`)
+    .addField("Deleted From Channel", `${messageDelete.channel}`)
+    .addField("Deleted By", whoDeletedTheMessage(firstDeleteEvent, messageDelete));
+
+  if (messageDelete.content !== "") {
+    embed.addField("Message Content", `${messageDelete.content}`);
+  } else {
+    embed.addField("Message Content", "IMAGE ONLY");
+  }
+
+  if (messageDelete.attachments.size > 0) {
+    embed.setImage(messageDelete.attachments.first().proxyURL);
+  }
+  channel.send(embed);
+};
+
+client.on("messageDelete", CreateDeletedEmbed);
+
 // Every hour check if the current time is within the ranges
 setInterval(redditInterval, 60 * 60 * 1000);
 
@@ -246,7 +280,5 @@ const limitedMessageHandler = RateLimiter(COMMAND_COOLDOWN, msgHandler);
 client.on("message", limitedMessageHandler);
 
 client.on("guildMemberUpdate", memberUpdateHandler);
-
-// Returns the nth non-stickied post in postList
 
 client.login(auth.token);

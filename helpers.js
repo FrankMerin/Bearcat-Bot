@@ -70,6 +70,7 @@ module.exports = {
     return Boolean(foundMessage);
   },
 
+  // Returns the nth non-stickied post in postList
   getNthNonStickiedPost: (postList, startAt = 0) => {
     for (let i = startAt; i < postList.length; ++i) {
       if (postList[i].data.stickied === true) {
@@ -77,5 +78,20 @@ module.exports = {
       } else return [`https://reddit.com${postList[i].data.permalink}`, i];
     }
     throw new Error("No non stickied posts found");
+  },
+
+  whoDeletedTheMessage: (firstDeleteEvent, messageDelete) => {
+    if (
+      // Checks if the audit log's event channel ID match the deleted message channel ID?
+      firstDeleteEvent.extra.channel.id === messageDelete.channel.id &&
+      // Checks if the audit log's event author ID matches the deleted message author ID?
+      firstDeleteEvent.target.id === messageDelete.author.id &&
+      // Checks if the recent audit log entry is recent (to avoid using old entries)
+      firstDeleteEvent.createdTimestamp > Date.now() - 7 * 1000
+    ) {
+      return firstDeleteEvent.executor.tag;
+    } else {
+      return messageDelete.author.tag;
+    }
   },
 };
