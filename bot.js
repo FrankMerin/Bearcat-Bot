@@ -1,9 +1,9 @@
-const Discord = require("discord.js");
-const Phin = require("phin");
+const Discord = require('discord.js');
+const Phin = require('phin');
 
-const auth = require("./auth.json");
-const messages = require("./messages.js");
-const majorsInfo = require("./majorsInfo.js");
+const auth = require('./auth.json');
+const messages = require('./messages.js');
+const majorsInfo = require('./majorsInfo.js');
 const {
   RateLimiter,
   getMemberFromUser,
@@ -15,20 +15,22 @@ const {
   havePostedAlready,
   getNthNonStickiedPost,
   whoDeletedTheMessage,
-} = require("./helpers.js");
+  log,
+  errLog,
+} = require('./helpers.js');
 
 // 1.5 second cooldown to limit spam
 const COMMAND_COOLDOWN = 1 * 1000;
 // Reddit API link
-const REDDIT_URL = "https://www.reddit.com/r/baruch.json?limit=10";
+const REDDIT_URL = 'https://www.reddit.com/r/baruch.json?limit=10';
 // Channel ID of channel used for posting reddit links
-const REDDIT_POSTING_CHANNEL_ID = "723038653751885825";
-const DELETED_MESSAGE_LOG_CHANNEL_ID = "727294305055801364";
+const REDDIT_POSTING_CHANNEL_ID = '723038653751885825';
+const DELETED_MESSAGE_LOG_CHANNEL_ID = '727294305055801364';
 
 // Initialize Discord Bot
 const client = new Discord.Client();
-client.on("ready", () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+client.on('ready', () => {
+  log(`Logged in as ${client.user.tag}!`);
   redditInterval();
 });
 
@@ -45,15 +47,15 @@ function assignMajorRole(user, major) {
     if (member.roles.find((currRole) => currRole === role)) {
       return {
         success: false,
-        error: "You already have that role.",
+        error: 'You already have that role.',
       };
     }
 
-    if (!member.roles.find(({ name }) => name === "Student")) {
+    if (!member.roles.find(({ name }) => name === 'Student')) {
       return {
         success: false,
         error:
-          "You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.",
+          'You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.',
       };
     }
 
@@ -67,8 +69,8 @@ function assignMajorRole(user, major) {
     member.addRole(role);
     return { success: true };
   } catch (err) {
-    console.error(`Failed to assign ${major} to ${user.username}.`);
-    console.error(err);
+    errLog(`Failed to assign ${major} to ${user.username}.`);
+    errLog(err);
     return {
       success: false,
       error: `Failed to assign major for unknown reason. Please PM "@egrodo#5991", the Discord server's admin.`,
@@ -81,7 +83,7 @@ function getProfRatings(profName, channel) {
 
   // First search for the professor and store preliminary information
   let rating, profId, profLastName, ratingsCount;
-  Phin({ url: searchProfsUrl, parse: "json" })
+  Phin({ url: searchProfsUrl, parse: 'json' })
     .then((res) => {
       const foundProfs = res.body.response.docs || undefined;
       // Assume the user is talking about the most relevant professor.
@@ -92,7 +94,7 @@ function getProfRatings(profName, channel) {
         ratingsCount = foundProfs[0].total_number_of_ratings_i;
 
         if (!rating || !profId) {
-          throw new Error("Professor API response malformed");
+          throw new Error('Professor API response malformed');
         }
       }
     })
@@ -100,30 +102,28 @@ function getProfRatings(profName, channel) {
       if (rating && profId && profLastName && ratingsCount) {
         // Now that we have the profId, send another request to get more information.
         const profInfoUrl = `https://www.ratemyprofessors.com/paginate/professors/ratings?tid=${profId}&max=10&cache=true`;
-        Phin({ url: profInfoUrl, parse: "json" })
+        Phin({ url: profInfoUrl, parse: 'json' })
           .then((res) => {
-            console.log(res.body);
-
             const profUrl = `https://www.ratemyprofessors.com/ShowRatings.jsp?tid=${profId}&showMyProfs=true`;
             channel.send(
-              `Professor ${profLastName} is rated ${rating}/5 with ${ratingsCount} reviews. View the ratings here: ${profUrl}`
+              `Professor ${profLastName} is rated ${rating}/5 with ${ratingsCount} reviews. View the ratings here: ${profUrl}`,
             );
           })
-          .catch((err) => console.error(err));
+          .catch((err) => errLog(err));
       } else {
-        channel.send("No professors found with that name.");
+        channel.send('No professors found with that name.');
       }
     })
     .catch((err) => {
-      console.error(err);
+      errLog(err);
     });
 }
 
 function msgHandler(msg) {
-  if (msg.content === "!roles") {
+  if (msg.content === '!roles') {
     if (!isStudentOrGradStudent(getMemberFromUser(client, msg.author))) {
       msg.author.send(
-        "You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student."
+        'You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.',
       );
       return;
     }
@@ -132,9 +132,9 @@ function msgHandler(msg) {
   }
 
   const splitMsg = msg.content.split(/\s+/);
-  const command = splitMsg[0] || "Unrecognized";
-  if (command.toLowerCase() === "!profrating" || command.toLowerCase() === "!rmp") {
-    const profName = splitMsg.slice(1, splitMsg.length).join(" ");
+  const command = splitMsg[0] || 'Unrecognized';
+  if (command.toLowerCase() === '!profrating' || command.toLowerCase() === '!rmp') {
+    const profName = splitMsg.slice(1, splitMsg.length).join(' ');
     getProfRatings(profName, msg.channel);
     return;
   }
@@ -142,17 +142,17 @@ function msgHandler(msg) {
   // If the bot is mentioned by an admin, check for commands to respond to.
   if (msg.isMemberMentioned(client.user)) {
     const splitMsg = msg.content.split(/\s+/);
-    const command = splitMsg[1] || "Unrecognized";
+    const command = splitMsg[1] || 'Unrecognized';
     // Call the RMP API and get prof rating information
-    if (command.toLowerCase() === "profrating" || command.toLowerCase() === "rmp") {
-      const profName = splitMsg.slice(2, splitMsg.length).join(" ");
+    if (command.toLowerCase() === 'profrating' || command.toLowerCase() === 'rmp') {
+      const profName = splitMsg.slice(2, splitMsg.length).join(' ');
       getProfRatings(profName, msg.channel);
       return;
     }
 
     if (isUserAdminOrMod(client, msg.author)) {
       switch (command.toLowerCase()) {
-        case "askmajor":
+        case 'askmajor':
           if (splitMsg.length < 3) {
             msg.reply(`Invalid syntax. Type "@Bearcat Bot askmajor @USER" or "@Bearcat Bot askmajor USERID"`);
             break;
@@ -168,17 +168,17 @@ function msgHandler(msg) {
             askedMember.send(messages.askMajor);
           }
           break;
-        case "profrating":
+        case 'profrating':
           break;
         default:
-          msg.reply("Unrecognized command");
+          msg.reply('Unrecognized command');
           break;
       }
     }
   }
 
   // Otherwise if not a DM stop message processing.
-  if (msg.channel.type !== "dm") {
+  if (msg.channel.type !== 'dm') {
     return;
   }
 
@@ -201,16 +201,16 @@ function msgHandler(msg) {
 function memberUpdateHandler(oldMember, newMember) {
   if (!isStudentOrGradStudent(oldMember) && isStudentOrGradStudent(newMember)) {
     newMember.user.send(messages.askMajor);
-    console.log(`Sent major request to new student ${newMember.user.username}.`);
+    log(`Sent major request to new student ${newMember.user.username}.`);
   } else if (!userHasRoles(newMember)) {
     try {
       const guild = client.guilds.first();
-      const role = guild.roles.find(({ name }) => name === "Unknown Role");
+      const role = guild.roles.find(({ name }) => name === 'Unknown Role');
       newMember.addRole(role);
-      console.log(`Assigned Unknown Role to new user (${newMember.user.username}) who removed theirs`);
+      log(`Assigned Unknown Role to new user (${newMember.user.username}) who removed theirs`);
     } catch (err) {
-      console.error("Failed to assign Unknown Role to new user");
-      console.error(err);
+      errLog('Failed to assign Unknown Role to new user');
+      errLog(err);
     }
   }
 }
@@ -220,7 +220,7 @@ const redditInterval = async () => {
   const shouldPost = isRedditPostingTime();
   if (!shouldPost) return;
   try {
-    const res = await Phin({ url: REDDIT_URL, parse: "json" });
+    const res = await Phin({ url: REDDIT_URL, parse: 'json' });
     const postList = res.body.data.children;
     let validPost = null;
     let startAt = 0;
@@ -236,33 +236,32 @@ const redditInterval = async () => {
     const channel = await client.channels.get(REDDIT_POSTING_CHANNEL_ID);
     channel.send(validPost);
   } catch (error) {
-    console.error("Failed to fetch and post Reddit post on interval");
-    console.error(error);
+    errLog('Failed to fetch and post Reddit post on interval');
+    errLog(error);
   }
 };
-
 
 // Creates and Sends the embed of all information for the deleted message
 const CreateDeletedEmbed = async (messageDelete) => {
   if (messageDelete.author.bot) return;
 
   const entry = await messageDelete.guild.fetchAuditLogs({
-    type: "MESSAGE_DELETE",
+    type: 'MESSAGE_DELETE',
   });
   const firstDeleteEvent = entry.entries.first();
   const channel = await client.channels.get(DELETED_MESSAGE_LOG_CHANNEL_ID);
 
   const embed = new Discord.RichEmbed()
-    .setTitle("A Message was Deleted")
-    .setColor("#FF0000")
-    .addField("Message Author", `${messageDelete.author}`)
-    .addField("Deleted From Channel", `${messageDelete.channel}`)
-    .addField("Deleted By", whoDeletedTheMessage(firstDeleteEvent, messageDelete));
+    .setTitle('A Message was Deleted')
+    .setColor('#FF0000')
+    .addField('Message Author', `${messageDelete.author}`)
+    .addField('Deleted From Channel', `${messageDelete.channel}`)
+    .addField('Deleted By', whoDeletedTheMessage(firstDeleteEvent, messageDelete));
 
-  if (messageDelete.content !== "") {
-    embed.addField("Message Content", `${messageDelete.content}`);
+  if (messageDelete.content !== '') {
+    embed.addField('Message Content', `${messageDelete.content}`);
   } else {
-    embed.addField("Message Content", "IMAGE ONLY");
+    embed.addField('Message Content', 'IMAGE ONLY');
   }
 
   if (messageDelete.attachments.size > 0) {
@@ -271,14 +270,14 @@ const CreateDeletedEmbed = async (messageDelete) => {
   channel.send(embed);
 };
 
-client.on("messageDelete", CreateDeletedEmbed);
+client.on('messageDelete', CreateDeletedEmbed);
 
 // Every hour check if the current time is within the ranges
 setInterval(redditInterval, 60 * 60 * 1000);
 
 const limitedMessageHandler = RateLimiter(COMMAND_COOLDOWN, msgHandler);
-client.on("message", limitedMessageHandler);
+client.on('message', limitedMessageHandler);
 
-client.on("guildMemberUpdate", memberUpdateHandler);
+client.on('guildMemberUpdate', memberUpdateHandler);
 
 client.login(auth.token);

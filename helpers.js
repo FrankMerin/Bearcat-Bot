@@ -1,4 +1,4 @@
-const Discord = require("discord.js");
+const Discord = require('discord.js');
 
 // User specific debounce function
 module.exports = {
@@ -20,16 +20,16 @@ module.exports = {
         setTimeout(() => {
           fn(msg);
           userMap.delete(msg.author.id);
-        }, delay)
+        }, delay),
       );
     };
   },
   getMemberFromUser: (client, user) => client.guilds.first().member(user),
-  userHasRoles: (member) => member.roles.last().name !== "@everyone",
+  userHasRoles: (member) => member.roles.last().name !== '@everyone',
   isStudentOrGradStudent: (member) => {
     if (
-      member.roles.find(({ name }) => name === "Student") ||
-      member.roles.find(({ name }) => name === "Grad Student")
+      member.roles.find(({ name }) => name === 'Student') ||
+      member.roles.find(({ name }) => name === 'Grad Student')
     ) {
       return true;
     }
@@ -37,15 +37,15 @@ module.exports = {
   },
   isUserAdminOrMod: (client, user) => {
     const member = client.guilds.first().member(user);
-    return member.hasPermission("ADMINISTRATOR");
+    return member.hasPermission('ADMINISTRATOR');
   },
   getUserFromMention: (client, mention) => {
     if (!mention) return;
 
-    if (mention.startsWith("<@") && mention.endsWith(">")) {
+    if (mention.startsWith('<@') && mention.endsWith('>')) {
       mention = mention.slice(2, -1);
 
-      if (mention.startsWith("!")) {
+      if (mention.startsWith('!')) {
         mention = mention.slice(1);
       }
 
@@ -77,7 +77,7 @@ module.exports = {
         continue;
       } else return [`https://reddit.com${postList[i].data.permalink}`, i];
     }
-    throw new Error("No non stickied posts found");
+    throw new Error('No non stickied posts found');
   },
 
   whoDeletedTheMessage: (firstDeleteEvent, messageDelete) => {
@@ -93,5 +93,15 @@ module.exports = {
     } else {
       return messageDelete.author.tag;
     }
+  },
+
+  log: (msg) => {
+    const timestamp = new Date().toString();
+    console.log(`${msg} @ ${timestamp}`);
+  },
+
+  errLog: (msg) => {
+    const timestamp = new Date().toString();
+    console.error(`${msg} @ ${timestamp}`);
   },
 };
