@@ -241,6 +241,7 @@ const redditInterval = async () => {
   }
 };
 
+
 // Creates and Sends the embed of all information for the deleted message
 const CreateDeletedEmbed = async (messageDelete) => {
   if (messageDelete.author.bot) return;
