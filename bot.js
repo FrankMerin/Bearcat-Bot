@@ -55,7 +55,7 @@ function assignMajorRole(user, major) {
       return {
         success: false,
         error:
-          'You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.',
+          'You have to be a student or Grad Student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.',
       };
     }
 
