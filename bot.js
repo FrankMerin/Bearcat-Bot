@@ -51,7 +51,7 @@ function assignMajorRole(user, major) {
       };
     }
 
-    if (!member.roles.find(({ name }) => name === 'Student')) {
+    if (!member.roles.find(({ name }) => name === 'Student' || name === 'Grad Student')) {
       return {
         success: false,
         error:
