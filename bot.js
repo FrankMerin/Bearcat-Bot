@@ -51,11 +51,11 @@ function assignMajorRole(user, major) {
       };
     }
 
-    if (!member.roles.find(({ name }) => name === 'Student')) {
+    if (!member.roles.find(({ name }) => name === 'Student' || name === 'Grad Student')) {
       return {
         success: false,
         error:
-          'You have to be a student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.',
+          'You have to be a student or Grad Student to receive a major. Please go to the #role-assignment channel to assign yourself as a student.',
       };
     }
 
